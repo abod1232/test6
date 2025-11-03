@@ -188,7 +188,7 @@ class GhoststreamProvider : MainAPI() {
             else -> {
                 // Try common extractors
                 val extractors = listOf(StreamTape(), Mp4Upload(), DoodLaExtractor())
-                extractors.any { it.getUrl(url, subtitleCallback, callback) }
+                for (extractor in extractors) {extractor.getUrl(url, subtitleCallback, callback)}
             }
         }
         
