@@ -23,7 +23,7 @@ cloudstream {
     // All of these properties are optional, you can safely remove any of them.
 
     description = "A provider that scrapes multiple sources" // Updated description
-    authors = listOf("YourUsername") // Change this to your GitHub username
+    authors = listOf("flummoxgamer") // Change this to your GitHub username
 
     /**
     * Status int as one of the following:
