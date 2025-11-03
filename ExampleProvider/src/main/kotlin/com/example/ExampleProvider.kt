@@ -1,22 +1,58 @@
 package com.example
+
+import com.lagacy.extension.ExtractorApi
 import com.lagacy.extension.ExtractorApi.properties.*
+import com.lagacy.extension.main.MainPageData
+import com.lagacy.extension.main.MainPageRequest
+import com.lagacy.extension.main.MainPageResponse
+import com.lagacy.extension.models.*
+import com.lagacy.extension.search.Search
+import com.lagacy.extension.utils.AppUtils.notYetImplemented
+import com.lagacy.extension.utils.Log
 
-import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.SearchResponse
-import com.lagradost.cloudstream3.TvType
+class ExampleProvider : ExtractorApi(), Search {
+    override var name = "Example"
+    override var mainUrl = "https://example.com"
+    override val supportedTypes = setOf(Type.Movie, Type.TvSeries)
+    override var requiresResources = false
+    override var language = "en"
+    override var iconUrl = "https://upload.wikimedia.org/wikipedia/commons/2/2f/Hardcore_Logo.png"
+    override val tvTypes = listOf(
+        TvType.Movie,
+        TvType.TvSeries
+    )
+    override var author = "Flummox"
+    override val cloudstream = 3
 
-class ExampleProvider : MainAPI() { // All providers must be an instance of MainAPI
-    override var mainUrl = "https://example.com/" 
-    override var name = "Example provider"
-    override val supportedTypes = setOf(TvType.Movie)
+    override fun getSearchResponse(query: String, page: Int): SearchResponse {
+        notYetImplemented
+        return SearchResponse(ArrayList(), false)
+    }
 
-    override var lang = "en"
+    override fun getContent(path: String): ContentResponse {
+        notYetImplemented
+        return ContentResponse(
+            data = ContentData(path, "", null, null, null, null, null, null),
+            metadata = ContentMetadata(null, null, null)
+        )
+    }
 
-    // Enable this when your provider has a main page
-    override val hasMainPage = true
+    override fun getMainPage(page: MainPageRequest): MainPageResponse {
+        notYetImplemented
+        return MainPageResponse(
+            list = listOf(
+                MainPageData(
+                    name = "Example Provider",
+                    path = "",
+                    list = ArrayList()
+                )
+            ),
+            hasNext = false
+        )
+    }
 
-    // This function gets called when you search for something
-    override suspend fun search(query: String): List<SearchResponse> {
-        return listOf()
+    override fun getVideoSources(path: String): VideoSourceResponse {
+        notYetImplemented
+        return VideoSourceResponse(ArrayList())
     }
 }
