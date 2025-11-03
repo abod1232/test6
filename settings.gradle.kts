@@ -1,8 +1,11 @@
+rootProject.name = "CloudstreamProvider"
+
+// --- FIX: Ensure JitPack is correctly configured for dependency resolution ---
 pluginManagement {
     repositories {
+        gradlePluginPortal()
         google()
         mavenCentral()
-        gradlePluginPortal()
     }
 }
 
@@ -11,8 +14,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Add JitPack at the end for proper dependency resolution
+        maven { url = uri("https://jitpack.io") }
     }
 }
-
-rootProject.name = "CloudstreamProvider"
-include(":ExampleProvider")
