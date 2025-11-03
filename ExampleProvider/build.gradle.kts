@@ -1,9 +1,11 @@
-// Provider Module build.gradle.kts - FINAL WORKING VERSION
+// Provider Module build.gradle.kts
 
-// Applying plugins using the old 'apply' syntax to ensure compatibility
-apply(plugin = "com.android.library")
-apply(plugin = "kotlin-android")
-apply(plugin = "com.lagradost.cloudstream3.provider")
+plugins {
+    // Apply the plugins configured in the root build.gradle.kts
+    id("com.android.library")
+    kotlin("android")
+    id("com.lagradost.cloudstream3.provider")
+}
 
 android {
     namespace = "com.example.provider"
@@ -27,10 +29,10 @@ android {
         viewBinding = true
     }
 }
-
+// This section defines all libraries your provider code needs.
 dependencies {
-    // FINAL FIX: Changing dependency version to 'master-SNAPSHOT' to bypass 401 Unauthorized error
-    implementation("com.lagradost.cloudstream3:app:master-SNAPSHOT") 
+    // The core CloudStream app library (Version 4.0.0 is latest stable)
+    implementation("com.lagradost.cloudstream3:app:4.0.0") 
 
     // Standard Android libraries
     implementation("com.google.android.material:material:1.12.0")
@@ -39,14 +41,13 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
 }
-
-// Provider configuration block
+// This metadata section must be outside the 'android' block.
 version = 1
 
 cloudstream {
     description = "A multi-source video provider"
     authors = listOf("FlummoxGamer")
-    status = 1
+    status = 1 
     tvTypes = listOf(
         "Movie",
         "TvSeries",
