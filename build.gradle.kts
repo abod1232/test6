@@ -1,22 +1,21 @@
-// This file is in the root directory.
+// Root level build.gradle.kts
+// This file is crucial for setting up plugins and repositories.
 
-// ... existing code ...
-
-// Add this block if it doesn't exist, or ensure it contains 'mavenCentral()' and 'jitpack.io'
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    // ... existing dependencies block ...
+plugins {
+    // Standard Android and Kotlin plugins needed for the project structure
+    id("com.android.application") version "8.5.1" apply false
+    id("com.android.library") version "8.5.1" apply false
+    kotlin("android") version "1.9.24" apply false
+    
+    // CloudStream Gradle Plugin - required for the 'cloudstream' block
+    id("com.lagradost.cloudstream3.provider") version "1.4.2" apply false
 }
 
+// CRITICAL FIX: Defines where Gradle should look for libraries (including JitPack for CloudStream)
 allprojects {
     repositories {
         google()
         mavenCentral()
-        // CRITICAL FIX: The CloudStream library is hosted on JitPack.
-        // This MUST be present for your dependencies to resolve.
-        maven("https://jitpack.io")
+        maven("https://jitpack.io") // Must have JitPack to find the CloudStream library
     }
 }
