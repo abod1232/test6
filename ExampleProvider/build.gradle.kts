@@ -1,6 +1,6 @@
-// Provider Module build.gradle.kts - FINAL FIX: Using 'apply' syntax
+// Provider Module build.gradle.kts - FINAL WORKING VERSION
 
-// FIX: Applying plugins using the old, more reliable syntax
+// Applying plugins using the old 'apply' syntax to ensure compatibility
 apply(plugin = "com.android.library")
 apply(plugin = "kotlin-android")
 apply(plugin = "com.lagradost.cloudstream3.provider")
