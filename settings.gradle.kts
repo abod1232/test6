@@ -2,15 +2,12 @@
 
 pluginManagement {
     repositories {
-        // CRITICAL FIX: Google and Maven Central MUST be here to find the Android plugins (com.android.application)
+        // CRITICAL: We need Google and Maven Central here to find the Android/Kotlin plugins and the CloudStream plugin
         google()
         mavenCentral()
-        // The CloudStream provider plugin is also found on JitPack, include it here
-        maven("https://jitpack.io")
         gradlePluginPortal()
     }
 }
-
-// Defines all modules in your project
+// This section must be directly below Part A.
 rootProject.name = "CloudstreamProvider"
 include(":ExampleProvider")
