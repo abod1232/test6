@@ -1,4 +1,4 @@
-⚖️ DMCA Disclaimer
+⚖️ 🅳🅼🅲🅰 🅳🅸🆂🅲🅻🅰🅸🅼🅴🆁
 
 We hereby issue this notice to clarify that these extensions function similarly to a standard web browser by fetching video files from the internet.
 
