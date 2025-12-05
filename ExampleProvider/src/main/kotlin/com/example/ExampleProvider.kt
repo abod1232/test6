@@ -16,7 +16,7 @@ import kotlin.Pair
 import kotlinx.coroutines.async
 
 
-class Akwam : MainAPI() {
+class AkwamProvider : MainAPI() {
     data class PosterData(val posterUrl: String?)
 
     override var mainUrl = "https://ak.sv"
