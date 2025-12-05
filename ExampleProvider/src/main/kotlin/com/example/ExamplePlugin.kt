@@ -1,10 +1,10 @@
-package com.akwam.provider
+package com.example
 
 import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 import com.lagradost.cloudstream3.plugins.Plugin
 
 @Plugin
-class AkwamPlugin : CloudstreamPlugin() {
+class ExamplePlugin : CloudstreamPlugin() {
     override fun load() {
         registerMainAPI(Akwam())
     }
