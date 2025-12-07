@@ -1,0 +1,35 @@
+[
+    {
+        "iconUrl": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Korduene_Logo.png",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/abod1232/test6",
+        "fileSize": 13593,
+        "status": 1,
+        "language": "en",
+        "authors": [
+            "Cloudburst",
+            "Luna712"
+        ],
+        "tvTypes": [
+            "Movie"
+        ],
+        "version": 1,
+        "internalName": "Anime3rbProvider",
+        "description": "Lorem ipsum",
+        "url": "https://raw.githubusercontent.com/abod1232/test6/builds/Anime3rbProvider.cs3",
+        "name": "Anime3rbProvider"
+    },
+    {
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/abod1232/test6",
+        "fileSize": 11174,
+        "status": 3,
+        "authors": [
+            
+        ],
+        "version": -1,
+        "internalName": "Cimawbas",
+        "url": "https://raw.githubusercontent.com/abod1232/test6/builds/Cimawbas.cs3",
+        "name": "Cimawbas"
+    }
+]
