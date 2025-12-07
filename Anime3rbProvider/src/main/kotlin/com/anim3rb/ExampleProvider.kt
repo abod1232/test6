@@ -13,21 +13,14 @@ class Anime3rb : MainAPI() {
 
     // 1. الكوكيز المحدثة
     private val cookiesMap = mapOf(
-        "cf_clearance" to "Mxd9VtmgipdY5o_6zvcKVRLwqyfnJcJRyPiTmW3S8cQ-1765128736-1.2.1.1-C0uBuiaENA22z4pbv2MCtXY.S6ibm_ANAHkUGP_XB0wdFbGUZDrgl1oXg7LIsGkcsGD5QHQ0bQvFZSByJiMlACesfyq.10VVd6cRZvytTvQZeh8ErCkTFwP9SBE5fNCP8z9CmUnS2lSmCNWa_c1kri6VFxGIG4LF5LLiaIuw7ZvTUyOgsglb_2KbqONlgBZZIVuCIZuCUp2dciLQ6iUMiznjBV9P.Z5FrdxIh.QmOpTwb2Gh7ZG81ni3a2Y9a.Nv"
+        "cf_clearance" to "pM0YbH.5vaBAp00P_PJxLfhNiBc_nSaiDFOOim292tI-1765142805-1.2.1.1-wS.Yf8ocSqmbhqZZ2eVZ9l1WYQFuoRfn27UfduafWWc6sVV2WDaLfoCkP2RsAFMiv5wQVQgaGB.e7JL7YL._HBYPDANTPzBfcnVEPa.O_YffdSSV2ip_w3J92HmrR1L.ZEgHiq8ZKYDO39PS53X1IwtDojVyt6FAw70tuYRqSYmmzye3ID3bBJ.zdS5Gz6LGyJhNAYtRbgE0re_C.zHLDkWrzfa4Z7y4cN32F4gJVOeMeDT_eXsmtDHmf_rVeg0K"
     )
 
     private val cookieHeaderValue = cookiesMap.entries.joinToString("; ") { "${it.key}=${it.value}" }
 
     // ترويسات عامة للموقع
     private val myHeaders = mapOf(
-        "Host" to "anime3rb.com",
         "User-Agent" to "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36",
-        "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-        "Accept-Language" to "ar-EG,ar;q=0.9",
-        "sec-fetch-site" to "none",
-        "sec-fetch-mode" to "navigate",
-        "sec-fetch-dest" to "document",
-        "upgrade-insecure-requests" to "1",
         "Cookie" to cookieHeaderValue
     )
 
