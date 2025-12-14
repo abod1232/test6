@@ -1,17 +1,18 @@
-package com.anim3rb
+package com.anime3rb
 
 import android.content.Context
-import androidx.appcompat.app.AppCompatActivity
-import com.anime3rb.Anime3rb
 import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 import com.lagradost.cloudstream3.plugins.Plugin
-
+import java.lang.ref.WeakReference
+import androidx.appcompat.app.AppCompatActivity
 @CloudstreamPlugin
 class Anime3rbPlugin: Plugin() {
     override fun load(context: Context) {
-        // إنشاء SharedPreference خاص بالإضافة
-        val sharedPref = context.getSharedPreferences("Anime3rb_Prefs", Context.MODE_PRIVATE)
-            registerMainAPI(Anime3rb())
+        // نلتقط الـ Context ونحفظه في متغير ثابت (Static) في البروفايدر
+        // نستخدم WeakReference لتجنب تسريب الذاكرة (Memory Leaks)
+        Anime3rb.activityContext = WeakReference(context)
+        registerMainAPI(Anime3rb())
+
 
         // تعريف زر الإعدادات
         openSettings = { ctx ->
