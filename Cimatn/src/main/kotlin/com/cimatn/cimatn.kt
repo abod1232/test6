@@ -1,4 +1,4 @@
-package com.cimawbas
+package com.cimatn
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.*
