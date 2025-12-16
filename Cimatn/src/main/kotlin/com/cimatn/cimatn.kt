@@ -417,7 +417,7 @@ class CimaTn : MainAPI() {
 
     // ترتيب و تنظيف النتائج:
     val sorted = episodes
-        .distinctBy { it.url } // حذر مزدوج
+        .distinctBy { it.data }// حذر مزدوج
         .sortedWith(compareBy<Episode> { it.season ?: Int.MAX_VALUE }
             .thenBy { it.episode ?: Int.MAX_VALUE }
             .thenBy { it.name ?: "" })
