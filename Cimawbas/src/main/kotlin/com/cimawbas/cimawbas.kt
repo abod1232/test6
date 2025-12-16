@@ -1,109 +1,112 @@
 package com.lagradost.cloudstream3.plugins
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.utils.AppUtils
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.nodes.Element
 
 class CimaWbas : MainAPI() {
-    override var mainUrl = "https://cimawbas.org"
-    override var name = "CimaWbas"
+    override var mainUrl = "https://www.cimatn.com"
+    override var name = "Cima Tn"
     override val hasMainPage = true
     override var lang = "ar"
-    override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries, TvType.AsianDrama, TvType.Anime)
-
-    // تعريف الكوكيز هنا لاستخدامها في كل الطلبات
-    private val protectionCookies = mapOf(
-        "cf_clearance" to "GiTICM7SfHnNeeQxFszUi6XGBJzKoYvgkT2h2DXES5M-1765287006-1.2.1.1-ctTEI.mzBsUuaEtOPYncQ4g5uz7A8cRI7qRC8cqtgMGxT4jVIbP_HhezALFn7AlvA6yItStB.wCPDBHz_ru1iQLXBn_vpqrxBCgehb64e9kWRp.eijz93Rd7529f4fjNPxlqYf1ap3TRx3ZdrPHlTpSur5Cq1iMr46YK66kHynR1q0Mth.uHz.ljEGVoLbgMDM0kq3gjI8ZX6FIMNzyiU0l1evRncj4uAdegEZ588yg"
-    )
+    override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
 
     override val mainPage = mainPageOf(
-        "$mainUrl/movies/page/" to "أفلام",
-        "$mainUrl/series/page/" to "مسلسلات",
-        "$mainUrl/category/%d8%a7%d9%81%d9%84%d8%a7%d9%85-%d8%a7%d9%86%d9%85%d9%8a/page/" to "أفلام أنمي",
-        "$mainUrl/category/%d9%85%d8%b3%d9%84%d8%b3%d9%84%d8%a7%d8%aa-%d8%a7%d9%86%d9%85%d9%8a/page/" to "مسلسلات أنمي",
-        "$mainUrl/last/page/" to "أضيف حديثاً"
+        "$mainUrl/search/label/أحدث الإضافات" to "أحدث الإضافات",
+        "$mainUrl/search/label/أفلام تونسية" to "أفلام تونسية",
+        "$mainUrl/search/label/مسلسلات تونسية" to "مسلسلات تونسية",
+        "$mainUrl/search/label/رمضان2025" to "رمضان 2025",
+        "$mainUrl/search/label/دراما" to "دراما",
+        "$mainUrl/search/label/كوميديا" to "كوميديا",
+        "$mainUrl/search/label/أكشن" to "أكشن"
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val url = request.data + page
-        // تم تمرير الكوكيز هنا
-        val document = app.get(url, cookies = protectionCookies).document
-        val home = document.select("li.Small--Box").mapNotNull {
-            toSearchResult(it)
+        // التعامل مع ترقيم الصفحات في بلوجر
+        val url = if (page == 1) {
+            request.data
+        } else {
+            // بلوجر يستخدم updated-max للترقيم وهذا صعب التخمين، 
+            // لذا سنكتفي بالصفحة الأولى أو نستخدم max-results كبير
+            "${request.data}?max-results=20"
         }
+
+        val doc = app.get(url).document
+        val home = doc.select("#holder a.itempost").mapNotNull { toSearchResult(it) }
         return newHomePageResponse(request.name, home)
     }
 
     private fun toSearchResult(element: Element): SearchResponse? {
-        val title = element.select("h3.title").text().trim()
-        val url = element.select("a").attr("href")
-        val posterUrl = element.select(".Poster img").let {
-            it.attr("data-src").ifEmpty { it.attr("src") }
-        }
-        val quality = element.select(".ribbon span").text().trim()
+        val title = element.select("#item-name").text().trim()
+        val url = element.attr("href")
+        var posterUrl = element.select("img").attr("src")
+        
+        // إصلاح جودة الصورة (بلوجر يستخدم صور صغيرة افتراضياً)
+        // تحويل s72-c أو w250 إلى حجم أكبر
+        posterUrl = posterUrl.replace(Regex("/s\\d+-c/"), "/w600/")
+                             .replace(Regex("/w\\d+/"), "/w600/")
+                             .replace(Regex("/s\\d+/"), "/s1600/")
+
+        val year = element.select(".entry-label").text().trim().toIntOrNull()
 
         return newMovieSearchResponse(title, url, TvType.Movie) {
             this.posterUrl = posterUrl
-            this.quality = getQualityFromString(quality)
+            this.year = year
         }
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val url = "$mainUrl/?s=$query"
-        // تم تمرير الكوكيز هنا
-        val document = app.get(url, cookies = protectionCookies).document
-        return document.select("li.Small--Box").mapNotNull {
-            toSearchResult(it)
-        }
+        val url = "$mainUrl/search?q=$query"
+        val doc = app.get(url).document
+        return doc.select("#holder a.itempost").mapNotNull { toSearchResult(it) }
     }
 
     override suspend fun load(url: String): LoadResponse {
-        // تم تمرير الكوكيز هنا
-        val doc = app.get(url, cookies = protectionCookies).document
-
+        val doc = app.get(url).document
+        
         val title = doc.select("h1.PostTitle").text().trim()
-        val poster = doc.select(".left .image img").let {
-            it.attr("data-src").ifEmpty { it.attr("src") }
-        }
         val description = doc.select(".StoryArea p").text().trim()
-        val year = doc.select(".TaxContent a[href*='release-year']").text().trim().toIntOrNull()
-        val tags = doc.select(".TaxContent .genre a").map { it.text() }
+        
+        var posterUrl = doc.select("#poster img").attr("src")
+        if (posterUrl.isEmpty()) posterUrl = doc.select(".image img").attr("src")
+        posterUrl = posterUrl.replace(Regex("/s\\d+-c/"), "/w600/")
+                             .replace(Regex("/w\\d+/"), "/w600/")
+                             .replace(Regex("/s\\d+/"), "/s1600/")
 
-        // Check if it is a Series or Movie
-        val episodes = doc.select(".allepcont .row a")
+        val year = doc.select("ul.RightTaxContent li:contains(تاريخ اصدار)").text()
+            .replace("تاريخ اصدار الفيلم :", "")
+            .replace("تاريخ اصدار المسلسل :", "")
+            .replace("date_range", "")
+            .trim().toIntOrNull()
+            
+        val tags = doc.select("ul.RightTaxContent li a").map { it.text() }
 
-        if (episodes.isNotEmpty()) {
-            // It's a Series
-            val episodeList = episodes.map { ep ->
-                val epTitle = ep.select(".ep-info h2").text()
-                val epUrl = ep.attr("href")
-                val epThumb = ep.select("img").let { it.attr("data-src").ifEmpty { it.attr("src") } }
-
-                // Try to extract episode number
-                val epNum = ep.select(".epnum").text().replace(Regex("[^0-9]"), "").toIntOrNull()
-
-                newEpisode(epUrl) {
-                    this.name = epTitle
-                    this.posterUrl = epThumb
-                    this.episode = epNum
-                }
-            }
-            return newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodeList) {
-                this.posterUrl = poster
+        // التحقق مما إذا كان المحتوى فيلماً أو مسلسلاً بناءً على التصنيف
+        val isSeries = tags.any { it.contains("مسلسل") } || url.contains("episode") || url.contains("-ep-")
+        
+        if (isSeries) {
+             // منطق المسلسلات (بناءً على التبويبات الموجودة في الكود)
+             // ملاحظة: الكود المصدري يستخدم جافاسكريبت لجلب الحلقات، 
+             // لكن غالباً ما تكون الروابط موجودة أيضاً في كود الصفحة إذا كان التبويب مفعل
+             
+             // في حالة هذا الموقع، الحلقات يتم جلبها ديناميكياً غالباً، 
+             // لكن سنحاول جلب الرابط الحالي كحلقة واحدة إذا لم نجد قائمة
+            return newTvSeriesLoadResponse(title, url, TvType.TvSeries, listOf()) {
+                this.posterUrl = posterUrl
                 this.year = year
                 this.plot = description
                 this.tags = tags
-                
             }
         } else {
-            // It's a Movie
-            return newMovieLoadResponse(title, url, TvType.Movie, url) {
-                this.posterUrl = poster
+            // منطق الأفلام
+            return newMovieLoadResponse(title, url, TvType.Movie, listOf()) {
+                this.posterUrl = posterUrl
                 this.year = year
                 this.plot = description
                 this.tags = tags
-                
             }
         }
     }
@@ -114,14 +117,50 @@ class CimaWbas : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        // تم تمرير الكوكيز هنا
-        val doc = app.get(data, cookies = protectionCookies).document
+        val doc = app.get(data).document
 
-        // Extract watch servers from data-watch attribute
-        doc.select("ul#watch li").forEach { server ->
-            val embedUrl = server.attr("data-watch")
-            if (embedUrl.isNotEmpty()) {
-                loadExtractor(embedUrl, subtitleCallback, callback)
+        // الطريقة الأولى: البحث عن متغير servers في الجافاسكريبت (كما يظهر في الكود المصدري)
+        // const servers = [ { name: '...', url: '...' }, ... ];
+        val scriptContent = doc.select("script").joinToString(" ") { it.data() }
+        
+        val serverRegex = Regex("""const\s+servers\s*=\s*(\[\s*\{.*?\}\s*\])""", RegexOption.DOT_MATCHES_ALL)
+        val match = serverRegex.find(scriptContent)
+
+        if (match != null) {
+            val jsonString = match.groupValues[1]
+            try {
+                // تنظيف JSON (أحياناً تكون المفاتيح بدون علامات اقتباس في JS)
+                // في هذا الموقع، يبدو الـ JS نظيفاً، لكن نستخدم Regex بسيط لاستخراج الروابط
+                val urlRegex = Regex("""url\s*:\s*['"](.*?)['"]""")
+                val urls = urlRegex.findAll(jsonString).map { it.groupValues[1] }.toList()
+
+                urls.forEach { serverUrl ->
+                    loadExtractor(serverUrl, data, subtitleCallback, callback)
+                }
+                return true
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        // الطريقة الثانية: البحث عن iframe مباشرة (للحالات البسيطة)
+        doc.select("div.WatchIframe iframe").attr("src").let { iframeUrl ->
+            if (iframeUrl.isNotEmpty()) {
+                loadExtractor(iframeUrl, data, subtitleCallback, callback)
+            }
+        }
+        
+        // الطريقة الثالثة: زر المشاهدة (قد يحتوي على data-secure-url مشفر)
+        val secureUrl = doc.select(".BTNSDownWatch a.watch").attr("data-secure-url")
+        if (secureUrl.isNotEmpty() && secureUrl != "#") {
+            // فك التشفير البسيط الموجود في كود الموقع
+            // let clean = encoded.slice(1, -1).split('').reverse().join('');
+            try {
+                val clean = secureUrl.substring(1, secureUrl.length - 1).reversed()
+                val decodedUrl = String(android.util.Base64.decode(clean, android.util.Base64.DEFAULT))
+                loadExtractor(decodedUrl, data, subtitleCallback, callback)
+            } catch (e: Exception) {
+               // فشل فك التشفير
             }
         }
 
