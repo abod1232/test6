@@ -1,5 +1,4 @@
-
-package com.cimatn
+package com.cimawbas
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.*
@@ -53,16 +52,17 @@ class CimaTn : MainAPI() {
     }
 
     // =========================================================================
-    // دالة Load المحدثة
+    // دالة Load (المحسنة للمسلسلات والأفلام)
     // =========================================================================
     override suspend fun load(url: String): LoadResponse {
         debugLog("🔵 Load Function Started: $url")
         val cleanUrl = url.substringBefore("?")
 
+        // -----------------------------------------------------------
         // 1. منطق الأفلام
+        // -----------------------------------------------------------
         if (cleanUrl.contains("film-")) {
             debugLog("🎬 Type: MOVIE detected")
-            
             val watchUrl = cleanUrl.replace("www.cimatn.com", "cimatunisa.blogspot.com")
             debugLog("✅ Redirecting to: $watchUrl")
 
@@ -83,9 +83,10 @@ class CimaTn : MainAPI() {
             }
         }
 
+        // -----------------------------------------------------------
         // 2. منطق المسلسلات
+        // -----------------------------------------------------------
         debugLog("📺 Type: SERIES detected")
-        
         val response = app.get(cleanUrl)
         val htmlContent = response.text
         val doc = response.document
@@ -105,8 +106,7 @@ class CimaTn : MainAPI() {
             val feedUrlSuffix = feedMatch.groupValues[1]
             val feedUrl = if (feedUrlSuffix.startsWith("http")) feedUrlSuffix else "$mainUrl$feedUrlSuffix"
             val cleanFeedUrl = feedUrl.replace("?alt=json-in-script", "?alt=json&max-results=500")
-            debugLog("🔎 Found Season JS Feed: $cleanFeedUrl")
-
+            
             try {
                 val feedJson = app.get(cleanFeedUrl).text
                 val feedData = AppUtils.parseJson<BloggerFeed>(feedJson)
@@ -118,9 +118,7 @@ class CimaTn : MainAPI() {
                     }
                 }
                 debugLog("✅ Parsed ${seasonsList.size} seasons from JSON")
-            } catch (e: Exception) { 
-                debugLog("❌ Error parsing seasons: ${e.message}")
-            }
+            } catch (e: Exception) { debugLog("Season parsing error: ${e.message}") }
         }
 
         // ب. البحث عن المواسم (HTML)
@@ -130,12 +128,10 @@ class CimaTn : MainAPI() {
                 val sLink = it.attr("href")
                 if (sLink.isNotEmpty()) seasonsList.add(sTitle to sLink)
             }
-            if (seasonsList.isNotEmpty()) debugLog("✅ Found ${seasonsList.size} seasons from HTML")
         }
 
         // ج. حالة موسم واحد
         if (seasonsList.isEmpty()) {
-            debugLog("📂 No seasons found. Using current page as Season 1")
             seasonsList.add("الموسم 1" to cleanUrl)
         }
 
@@ -144,34 +140,28 @@ class CimaTn : MainAPI() {
         // د. معالجة كل موسم
         seasonsList.forEachIndexed { index, (sTitle, sLink) ->
             val seasonNum = index + 1
-            debugLog("--------------------------------------------------")
             debugLog("🔄 Processing Season $seasonNum: $sTitle")
             
-            // جلب محتوى صفحة الموسم
             val seasonHtml = if (sLink == cleanUrl) htmlContent else app.get(sLink).text
             
-            // محاولة استخراج الحلقات
+            // 1. محاولة مباشرة (JS & HTML)
             var eps = getEpisodesDirect(seasonHtml, sLink, seasonNum)
             
+            // 2. إذا فشل الاستخراج المباشر، نستخدم البحث الاحتياطي (Fallback)
+            // هذا الجزء هو الذي سيحل مشكلة Flash Back
+            if (eps.isEmpty()) {
+                debugLog("   -> No episodes found directly. Trying Feed Search...")
+                // استخراج slug من الرابط (اسم المسلسل)
+                val slug = sLink.substringAfterLast("/").substringBefore(".").replace("_9", "").replace("-s2", "").replace("-s1", "")
+                eps = getEpisodesFromSearchFeed(slug, seasonNum)
+            }
+
             if (eps.isNotEmpty()) {
-                debugLog("✅ Successfully found ${eps.size} episodes in Season $seasonNum")
+                debugLog("✅ Found ${eps.size} episodes in Season $seasonNum")
                 allEpisodes.addAll(eps)
             } else {
                 debugLog("❌ FAILED to find episodes in Season $seasonNum")
-                
-                // طباعة HTML للتحليل إذا لزم الأمر
-                // printLargeLog(seasonHtml) 
-                
-                // محاولة أخيرة بالبحث (Fallback) فقط إذا كان موسماً واحداً
-                if (seasonsList.size == 1) { 
-                    debugLog("Trying Feed Search Fallback...")
-                    val slug = sLink.substringAfterLast("/").substringBefore(".").replace("_9", "")
-                    eps = getEpisodesFromSearchFeed(slug, seasonNum)
-                    if (eps.isNotEmpty()) {
-                        debugLog("✅ Fallback found ${eps.size} episodes")
-                        allEpisodes.addAll(eps)
-                    }
-                }
+                if (seasonsList.size == 1) printLargeLog(seasonHtml) // طباعة HTML للتحليل إذا فشل كل شيء
             }
         }
 
@@ -184,12 +174,12 @@ class CimaTn : MainAPI() {
     }
 
     // ========================================================
-    // دالة استخراج الحلقات (مجمعة)
+    // دالة استخراج الحلقات (المباشرة)
     // ========================================================
     private fun getEpisodesDirect(htmlContent: String, pageUrl: String, seasonNum: Int): List<Episode> {
         val episodes = mutableListOf<Episode>()
 
-        // 1. فحص متغيرات JS
+        // 1. JS Variables (Ragouj Style)
         val countMatch = Regex("""const\s+totalEpisodes\s*=\s*(\d+);""").find(htmlContent)
         val baseLinkMatch = Regex("""const\s+baseLink\s*=\s*['"]([^"']+)['"]""").find(htmlContent)
 
@@ -197,8 +187,6 @@ class CimaTn : MainAPI() {
             val count = countMatch.groupValues[1].toInt()
             val baseLink = baseLinkMatch.groupValues[1]
             val domain = "https://${java.net.URI(pageUrl).host}"
-            
-            debugLog("   -> Found JS Config: Count=$count, Base=$baseLink")
 
             for (i in 1..count) {
                 val fullLink = when {
@@ -216,10 +204,8 @@ class CimaTn : MainAPI() {
             return episodes
         }
 
-        // 2. فحص روابط HTML
+        // 2. HTML Selectors
         val doc = org.jsoup.Jsoup.parse(htmlContent)
-        
-        // قائمة بالمحددات المحتملة
         val selectors = listOf(
             ".allepcont .row a",          
             ".EpisodesList a",            
@@ -233,39 +219,34 @@ class CimaTn : MainAPI() {
         for (selector in selectors) {
             val links = doc.select(selector)
             if (links.isNotEmpty()) {
-                debugLog("   -> Found ${links.size} potential links using selector: '$selector'")
-                
                 links.forEach { link ->
-                    val epName = link.select("h2").text().trim()
-                        .ifEmpty { link.text().trim() }
-                        .ifEmpty { "Episode" }
-                    
+                    val epName = link.select("h2").text().trim().ifEmpty { link.text().trim() }.ifEmpty { "Episode" }
                     val epUrl = link.attr("href")
                     
-                    // استخراج رقم الحلقة
                     val epNum = Regex("""(\d+)""").findAll(epName).lastOrNull()?.value?.toIntOrNull()
 
-                    if (epUrl.isNotEmpty() && epUrl != pageUrl && !epUrl.contains("#")) {
-                         if (epUrl.contains(".html")) {
-                             episodes.add(newEpisode(epUrl) {
-                                 this.name = epName
-                                 this.season = seasonNum
-                                 this.episode = epNum
-                             })
-                         }
+                    if (epUrl.isNotEmpty() && !epUrl.contains("#") && epUrl != pageUrl) {
+                        episodes.add(newEpisode(epUrl) {
+                            this.name = epName
+                            this.season = seasonNum
+                            this.episode = epNum
+                        })
                     }
                 }
-                
-                if (episodes.isNotEmpty()) break 
+                if (episodes.isNotEmpty()) break
             }
         }
         
         return episodes
     }
 
+    // ========================================================
+    // دالة البحث الاحتياطي (Feed Search)
+    // ========================================================
     private suspend fun getEpisodesFromSearchFeed(slug: String, seasonNum: Int): List<Episode> {
         val episodes = mutableListOf<Episode>()
         val pageFeedUrl = "$mainUrl/feeds/pages/default?alt=json&max-results=100&q=$slug"
+        debugLog("   -> Fetching Feed: $pageFeedUrl")
         
         try {
             val feedJson = app.get(pageFeedUrl).text
@@ -274,6 +255,7 @@ class CimaTn : MainAPI() {
                 val l = e.link?.find { it.rel == "alternate" }?.href ?: ""
                 val t = e.title?.t ?: "Episode"
                 
+                // شرط: الرابط يحتوي على slug ويحتوي على مؤشرات الحلقة
                 if (l.contains(slug) && (l.contains("ep") || l.contains("hal9a"))) {
                      val epNum = Regex("""(\d+)""").findAll(t).lastOrNull()?.value?.toIntOrNull()
                      
@@ -285,12 +267,12 @@ class CimaTn : MainAPI() {
                 }
             }
             episodes.sortBy { it.episode }
-        } catch (e: Exception) { }
+        } catch (e: Exception) { debugLog("Feed Error: ${e.message}") }
         return episodes
     }
 
     // ========================================================
-    // دالة loadLinks
+    // دالة LoadLinks
     // ========================================================
     override suspend fun loadLinks(
         data: String,
@@ -301,7 +283,6 @@ class CimaTn : MainAPI() {
         debugLog("loadLinks started: $data")
         val doc = app.get(data).document
         val scriptContent = doc.select("script").joinToString(" ") { it.data() }
-
         var foundServer = false
 
         // 1. مصفوفة const servers
@@ -313,7 +294,7 @@ class CimaTn : MainAPI() {
             val urlRegex = Regex("""url\s*:\s*['"](.*?)['"]""")
             urlRegex.findAll(jsonString).forEach { matchResult ->
                 val serverUrl = matchResult.groupValues[1]
-                debugLog("Found Server (JS Array): $serverUrl")
+                debugLog("Found Server: $serverUrl")
                 loadExtractor(serverUrl, data, subtitleCallback, callback)
                 foundServer = true
             }
@@ -322,8 +303,7 @@ class CimaTn : MainAPI() {
         // 2. Iframe مباشر
         doc.select("div.WatchIframe iframe, iframe").forEach { iframe ->
             val src = iframe.attr("src")
-            if (src.isNotEmpty() && !src.contains("facebook") && !src.contains("instagram") && !src.contains("googletagmanager")) {
-                debugLog("Found Iframe: $src")
+            if (src.isNotEmpty() && !src.contains("facebook") && !src.contains("instagram")) {
                 loadExtractor(src, data, subtitleCallback, callback)
                 foundServer = true
             }
@@ -335,7 +315,6 @@ class CimaTn : MainAPI() {
             try {
                 val clean = secureUrl.substring(1, secureUrl.length - 1).reversed()
                 val decodedUrl = String(Base64.decode(clean, Base64.DEFAULT))
-                debugLog("Decoded Secure Link: $decodedUrl")
                 loadExtractor(decodedUrl, data, subtitleCallback, callback)
                 foundServer = true
             } catch (e: Exception) { }
@@ -344,9 +323,6 @@ class CimaTn : MainAPI() {
         return foundServer
     }
 
-    // ========================================================
-    // دوال مساعدة (موجودة مرة واحدة فقط)
-    // ========================================================
     private fun printLargeLog(content: String) {
         if (content.length > 4000) {
             println("CimaTnDebug: HTML DUMP PART 1:")
