@@ -1,0 +1,21 @@
+[
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=cimanow.cc&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/abod1232/test6",
+        "fileSize": 9119,
+        "status": 1,
+        "language": "ar",
+        "authors": [
+            "ImZaw"
+        ],
+        "tvTypes": [
+            "TvSeries",
+            "Movie"
+        ],
+        "version": 1,
+        "internalName": "Iptv",
+        "url": "https://raw.githubusercontent.com/abod1232/test6/builds/Iptv.cs3",
+        "name": "Iptv"
+    }
+]
