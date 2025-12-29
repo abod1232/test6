@@ -106,7 +106,7 @@ class VipTV : MainAPI() {
             }
         }
 
-        return HomePageResponse(items)
+        return newHomePageResponse(items)
     }
 
     // ============================================================
