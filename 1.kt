@@ -1,15 +1,80 @@
+override suspend fun load(url: String): LoadResponse? {
+    val headers = getAuthenticatedHeaders()
 
-private suspend fun getPlaybackHeaders(): Map<String, String> {
-    val token = getAuthToken()
+    val uri = android.net.Uri.parse(url)
+    val type = uri.getQueryParameter("type") ?: return null
+    val id = uri.getQueryParameter("id") ?: return null
 
-    return mapOf(
-        "Authorization" to "Bearer $token",
-        "platform" to "android",
-        "content-type" to "application/json",
-        "user-agent" to "okhttp/4.12.0",
-        "accept-encoding" to "gzip"
-    )
+    // ==========================================================
+    // 🎬 MOVIE
+    // ==========================================================
+    if (type == "movie") {
+        val detailUrl =
+            "$mobileApiUrl?platform_flag_label=phone&os_flag_id=2" +
+            "&r=/vod/product-detail&product_id=$id" +
+            "&area_id=$areaId&language_flag_id=$languageId"
+
+        val resp = app.get(detailUrl, headers = headers)
+            .parsedSafe<ViuDetailResponse>()
+            ?: return null
+
+        val product =
+            resp.data?.product ?: resp.data?.currentProduct ?: return null
+
+        return newMovieLoadResponse(
+            product.name ?: "Unknown",
+            url,
+            TvType.Movie,
+            product.productId
+        ) {
+            posterUrl = product.coverImage
+            plot = product.description ?: product.synopsis
+        }
+    }
+
+    // ==========================================================
+    // 📺 SERIES
+    // ==========================================================
+    if (type == "series") {
+        val epUrl =
+            "$mobileApiUrl?platform_flag_label=phone&os_flag_id=2" +
+            "&r=/vod/product-list&series_id=$id&size=1000" +
+            "&area_id=$areaId&language_flag_id=$languageId"
+
+        val epResp = app.get(epUrl, headers = headers)
+            .parsedSafe<ViuEpisodeListResponse>()
+            ?: return null
+
+        val products = epResp.data?.products ?: return null
+        if (products.isEmpty()) return null
+
+        val episodes = products.mapNotNull { ep ->
+            val productId = ep.productId ?: return@mapNotNull null
+
+            newEpisode(productId) {
+                this.data = productId        // 🔥 مهم جدًا
+                name = ep.synopsis ?: "Episode ${ep.number}"
+                episode = ep.number?.toIntOrNull()
+                posterUrl = ep.coverImage
+            }
+        }.sortedBy { it.episode }
+
+        val first = products.first()
+
+        return newTvSeriesLoadResponse(
+            first.seriesName ?: "Unknown",
+            url,
+            TvType.TvSeries,
+            episodes
+        ) {
+            posterUrl = first.seriesCoverLandscapeImageUrl ?: first.coverImage
+            plot = first.description ?: first.synopsis
+        }
+    }
+
+    return null
 }
+
 
 
 override suspend fun loadLinks(
@@ -20,7 +85,7 @@ override suspend fun loadLinks(
 ): Boolean {
 
     // ==========================================================
-    // 0️⃣ Headers مطابقة للتطبيق الرسمي (مهم جدًا)
+    // 0️⃣ Headers مطابقة لتطبيق Viu الرسمي
     // ==========================================================
     val playbackHeaders = mapOf(
         "Authorization" to "Bearer ${getAuthToken()}",
@@ -51,7 +116,7 @@ override suspend fun loadLinks(
     val ccsId = product.ccsProductId ?: return false
 
     // ==========================================================
-    // 2️⃣ طلب التشغيل playback/distribute
+    // 2️⃣ طلب playback/distribute
     // ==========================================================
     val playUrl =
         "$playbackUrl?ccs_product_id=$ccsId" +
@@ -70,7 +135,7 @@ override suspend fun loadLinks(
     val streams = playResp.data?.stream?.url ?: return false
 
     // ==========================================================
-    // 3️⃣ إضافة روابط m3u8 مباشرة (تعمل فورًا)
+    // 3️⃣ إضافة روابط m3u8 مباشرة
     // ==========================================================
     streams.forEach { (qualityKey, streamUrl) ->
         if (streamUrl.isNullOrBlank()) return@forEach
@@ -81,8 +146,8 @@ override suspend fun loadLinks(
                 name = "Viu ${qualityKey.uppercase()}",
                 url = streamUrl
             ) {
-                referer = "https://www.viu.com/"
                 isM3u8 = true
+                referer = "https://www.viu.com/"
                 quality = when {
                     qualityKey.contains("1080") -> Qualities.P1080.value
                     qualityKey.contains("720") -> Qualities.P720.value
@@ -96,6 +161,3 @@ override suspend fun loadLinks(
 
     return true
 }
-
-
-
