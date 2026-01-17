@@ -5,12 +5,12 @@ import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
 import java.util.UUID
 
-class Viptv : MainAPI() {
+class VipTV : MainAPI() {
 
     override var name = "Viu MENA"
     override var mainUrl = "https://www.viu.com"
     override var lang = "ar"
-    override val supportedTypes = setOf(TvType.TvSeries, TvType.Movie)
+    override val supportedTypes = setOf(TvType.TvSeries)
     override val hasMainPage = true
 
     // ===================== CONFIG =====================
@@ -66,6 +66,35 @@ class Viptv : MainAPI() {
     private suspend fun authHeaders(): Map<String, String> =
         baseHeaders + mapOf("authorization" to "Bearer ${getAuthToken()}")
 
+    // ===================== MAIN PAGE =====================
+
+    override suspend fun getMainPage(
+        page: Int,
+        request: MainPageRequest
+    ): HomePageResponse {
+
+        return try {
+            val url =
+                "$mobileApi?platform_flag_label=phone" +
+                "&r=/product/list" +
+                "&category_id=726" +
+                "&size=20" +
+                "&area_id=$areaId" +
+                "&language_flag_id=$languageId"
+
+            val res = app.get(url, headers = authHeaders())
+                .parsedSafe<ViuResponse>() ?: return HomePageResponse(emptyList())
+
+            val items = res.data?.items?.mapNotNull { it.toSearch() } ?: emptyList()
+
+            HomePageResponse(
+                listOf(HomePageList("مسلسلات عربية", items))
+            )
+        } catch (e: Exception) {
+            HomePageResponse(emptyList())
+        }
+    }
+
     // ===================== SEARCH =====================
 
     override suspend fun search(query: String): List<SearchResponse> {
@@ -81,32 +110,7 @@ class Viptv : MainAPI() {
     }
 
     // ===================== LOAD =====================
-override suspend fun getMainPage(
-    page: Int,
-    request: MainPageRequest
-): HomePageResponse {
 
-    val url =
-        "$mobileApi?platform_flag_label=phone" +
-        "&r=/product/list" +
-        "&category_id=726" + // مسلسلات عربية
-        "&size=20" +
-        "&area_id=$areaId" +
-        "&language_flag_id=$languageId"
-
-    val res = app.get(url, headers = authHeaders())
-        .parsedSafe<ViuResponse>() ?: return HomePageResponse(emptyList())
-
-    val items = res.data?.items?.mapNotNull {
-        it.toSearch()
-    } ?: emptyList()
-
-    return HomePageResponse(
-        listOf(
-            HomePageList("مسلسلات عربية", items)
-        )
-    )
-}
     override suspend fun load(url: String): LoadResponse? {
         val seriesId = url.substringAfterLast("/")
 
@@ -119,14 +123,16 @@ override suspend fun getMainPage(
             .parsedSafe<ViuEpisodeListResponse>() ?: return null
 
         val eps = res.data?.products ?: return null
-        val first = eps.first()
+        val first = eps.firstOrNull() ?: return null
 
-        val episodes = eps.map {
-            newEpisode(it.productId!!) {
+        val episodes = eps.mapNotNull {
+            if (it.productId == null || it.ccsProductId == null) return@mapNotNull null
+
+            newEpisode(it.productId) {
                 name = it.synopsis ?: "Episode ${it.number}"
                 episode = it.number?.toIntOrNull()
                 posterUrl = it.coverImage
-                data = it.ccsProductId      // 🔥 أهم سطر
+                data = "ccs:${it.ccsProductId}"
             }
         }
 
@@ -136,7 +142,7 @@ override suspend fun getMainPage(
             TvType.TvSeries,
             episodes
         ) {
-            posterUrl = first.seriesCover
+            posterUrl = first.seriesCover ?: first.coverImage
             plot = first.description
         }
     }
@@ -150,14 +156,11 @@ override suspend fun getMainPage(
         callback: (ExtractorLink) -> Unit
     ): Boolean {
 
-        val ccsId = data
+        val ccsId = data.removePrefix("ccs:")
 
-        val headers = mapOf(
-            "authorization" to "Bearer ${getAuthToken()}",
+        val headers = authHeaders() + mapOf(
             "platform" to "android",
-            "content-type" to "application/json",
-            "user-agent" to "okhttp/4.12.0",
-            "accept-encoding" to "gzip"
+            "content-type" to "application/json"
         )
 
         val playUrl =
@@ -179,7 +182,7 @@ override suspend fun getMainPage(
                     name = "Viu ${q.uppercase()}",
                     url = link
                 ) {
-                    
+                    isM3u8 = true
                     quality = when {
                         q.contains("1080") -> Qualities.P1080.value
                         q.contains("720") -> Qualities.P720.value
@@ -206,6 +209,14 @@ override suspend fun getMainPage(
 
     data class SearchData(
         @JsonProperty("series") val series: List<ViuItem>?
+    )
+
+    data class ViuResponse(
+        @JsonProperty("data") val data: ViuData?
+    )
+
+    data class ViuData(
+        @JsonProperty("items") val items: List<ViuItem>?
     )
 
     data class ViuEpisodeListResponse(
