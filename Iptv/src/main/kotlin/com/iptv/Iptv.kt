@@ -87,11 +87,11 @@ class VipTV : MainAPI() {
 
             val items = res.data?.items?.mapNotNull { it.toSearch() } ?: emptyList()
 
-            HomePageResponse(
+            newHomePageResponse(
                 listOf(HomePageList("مسلسلات عربية", items))
             )
         } catch (e: Exception) {
-            HomePageResponse(emptyList())
+            newHomePageResponse(emptyList())
         }
     }
 
@@ -182,7 +182,7 @@ class VipTV : MainAPI() {
                     name = "Viu ${q.uppercase()}",
                     url = link
                 ) {
-                    isM3u8 = true
+                    
                     quality = when {
                         q.contains("1080") -> Qualities.P1080.value
                         q.contains("720") -> Qualities.P720.value
