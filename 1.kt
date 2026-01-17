@@ -1,3 +1,49 @@
+override suspend fun load(url: String): LoadResponse? {
+    val headers = getAuthenticatedHeaders()
+
+    val uri = android.net.Uri.parse(url)
+    val seriesId = uri.getQueryParameter("id") ?: return null
+
+    val epUrl =
+        "$mobileApiUrl?platform_flag_label=phone&os_flag_id=2" +
+                "&r=/vod/product-list" +
+                "&series_id=$seriesId" +
+                "&size=1000" +
+                "&area_id=$areaId" +
+                "&language_flag_id=$languageId"
+
+    val resp = app.get(epUrl, headers = headers)
+        .parsedSafe<ViuEpisodeListResponse>()
+        ?: return null
+
+    val products = resp.data?.products ?: return null
+    if (products.isEmpty()) return null
+
+    val episodes = products.mapNotNull { ep ->
+        val ccsId = ep.ccsProductId ?: return@mapNotNull null
+
+        newEpisode(ccsId) {
+            data = ccsId                     // 🔥 نفس بايثون
+            name = ep.synopsis ?: "Episode ${ep.number}"
+            episode = ep.number?.toIntOrNull()
+            posterUrl = ep.coverImage
+        }
+    }.sortedBy { it.episode }
+
+    val first = products.first()
+
+    return newTvSeriesLoadResponse(
+        first.seriesName ?: "Unknown",
+        url,
+        TvType.TvSeries,
+        episodes
+    ) {
+        posterUrl = first.seriesCoverPortraitImageUrl
+        plot = first.description ?: first.synopsis
+    }
+}
+
+
 override suspend fun loadLinks(
     data: String,
     isCasting: Boolean,
@@ -5,30 +51,26 @@ override suspend fun loadLinks(
     callback: (ExtractorLink) -> Unit
 ): Boolean {
 
-    // 🔥 data = ccs_product_id مباشرة
-    val ccsId = data
-
     val headers = mapOf(
         "Authorization" to "Bearer ${getAuthToken()}",
-        "platform" to "android",
-        "content-type" to "application/json",
-        "user-agent" to "okhttp/4.12.0",
-        "accept-encoding" to "gzip"
+        "User-Agent" to "okhttp/4.12.0",
+        "Accept" to "application/json"
     )
 
     val playUrl =
-        "$playbackUrl?ccs_product_id=$ccsId" +
-        "&platform_flag_label=phone" +
-        "&language_flag_id=$languageId" +
-        "&ut=0" +
-        "&area_id=$areaId" +
-        "&os_flag_id=2" +
-        "&countryCode=$countryCode"
+        "$playbackUrl?ccs_product_id=$data" +
+                "&platform_flag_label=phone" +
+                "&language_flag_id=$languageId" +
+                "&ut=0" +
+                "&area_id=$areaId" +
+                "&os_flag_id=2" +
+                "&countryCode=$countryCode"
 
-    val playResp = app.get(playUrl, headers = headers)
-        .parsedSafe<ViuPlaybackResponse>() ?: return false
+    val resp = app.get(playUrl, headers = headers)
+        .parsedSafe<ViuPlaybackResponse>()
+        ?: return false
 
-    val streams = playResp.data?.stream?.url ?: return false
+    val streams = resp.data?.stream?.url ?: return false
 
     streams.forEach { (qualityKey, streamUrl) ->
         if (streamUrl.isNullOrBlank()) return@forEach
@@ -39,7 +81,6 @@ override suspend fun loadLinks(
                 name = "Viu ${qualityKey.uppercase()}",
                 url = streamUrl
             ) {
-                isM3u8 = true
                 referer = "https://www.viu.com/"
                 quality = when {
                     qualityKey.contains("1080") -> Qualities.P1080.value
