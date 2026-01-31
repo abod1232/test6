@@ -7,7 +7,7 @@ import java.util.UUID
 
 class VipTV : MainAPI() {
 
-    override var name = "Viu MENA"
+    override var name = "Viu MENA1"
     override var mainUrl = "https://www.viu.com"
     override var lang = "ar"
     override val supportedTypes = setOf(TvType.TvSeries)
